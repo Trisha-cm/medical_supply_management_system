@@ -1,0 +1,204 @@
+import json
+from datetime import datetime
+from collections import Counter
+
+# Load the JSON data
+def load_data(DataEngineeringQ2(2).json):
+    with open(DataEngineeringQ2(2).json, 'r') as file:
+        return json.load(DataEngineeringQ2(2).json)
+
+# Calculate missing value percentages
+def calculate_missing_percentage(data, columns):
+    total = len(data)
+    percentages = []
+    for column in columns:
+        missing = sum(1 for row in data if not row.get(column))
+        percentages.append(round((missing / total) * 100, 2))
+    return percentages
+
+# Impute missing gender values and calculate female percentage
+def impute_gender_and_calculate_percentage(data):
+    genders = [row.get('gender', '').lower() for row in data if row.get('gender', '').strip()]
+    mode_gender = Counter(genders).most_common(1)[0][0]
+    total = len(data)
+    female_count = 0
+
+    for row in data:
+        gender = row.get('gender', '').lower()
+        if not gender.strip():
+            row['gender'] = mode_gender
+        if row['gender'] == 'female':
+            female_count += 1
+
+    return round((female_count / total) * 100, 2)
+
+# Add age group column and count Adults
+def categorize_age_group_and_count_adults(data):
+    adult_count = 0
+
+    for row in data:
+        birth_date = row.get('birthDate')
+        age = None
+        if birth_date:
+            try:
+                dob = datetime.strptime(birth_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+                today = datetime.today()
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            except ValueError:
+                pass
+
+        if age is not None:
+            if 0 <= age <= 12:
+                row['ageGroup'] = 'Child'
+            elif 13 <= age <= 19:
+                row['ageGroup'] = 'Teen'
+            elif 20 <= age <= 59:
+                row['ageGroup'] = 'Adult'
+                adult_count += 1
+            elif age >= 60:
+                row['ageGroup'] = 'Senior'
+            else:
+                row['ageGroup'] = 'Unknown'
+
+    return adult_count
+
+# Calculate average number of medicines prescribed
+def calculate_average_medicines(data):
+    total_medicines = 0
+    total_consultations = len(data)
+
+    for consultation in data:
+        medicines = consultation.get('medicines', [])
+        total_medicines += len(medicines)
+
+    return round(total_medicines / total_consultations, 2)
+
+# Determine the 3rd most frequently prescribed medicine
+def find_third_most_frequent_medicine(data):
+    medicine_counter = Counter()
+
+    for consultation in data:
+        medicines = consultation.get('medicines', [])
+        for medicine in medicines:
+            medicine_name = medicine.get('medicineName', '')
+            if medicine_name.strip():
+                medicine_counter[medicine_name] += 1
+
+    sorted_medicines = medicine_counter.most_common()
+    return sorted_medicines[2][0] if len(sorted_medicines) > 2 else None
+
+# Calculate percentage distribution of active and inactive medicines
+def calculate_medicine_distribution(data):
+    active_count = 0
+    total_count = 0
+
+    for consultation in data:
+        medicines = consultation.get('medicines', [])
+        for medicine in medicines:
+            total_count += 1
+            if medicine.get('isActive', False):
+                active_count += 1
+
+    active_percentage = round((active_count / total_count) * 100, 2)
+    inactive_percentage = round(100 - active_percentage, 2)
+    return active_percentage, inactive_percentage
+
+# Validate phone numbers
+def validate_phone_numbers(data):
+    def is_valid_phone(phone):
+        if phone.startswith('+91'):
+            phone = phone[3:]
+        elif phone.startswith('91'):
+            phone = phone[2:]
+
+        if phone.isdigit() and len(phone) == 10 and 6000000000 <= int(phone) <= 9999999999:
+            return True
+        return False
+
+    valid_count = 0
+    for row in data:
+        phone = row.get('phoneNumber', '')
+        if is_valid_phone(phone):
+            valid_count += 1
+            row['isValidMobile'] = True
+        else:
+            row['isValidMobile'] = False
+
+    return valid_count
+
+# Calculate Pearson correlation between age and number of medicines prescribed
+def calculate_pearson_correlation(data):
+    age_medicine_pairs = []
+
+    for row in data:
+        birth_date = row.get('birthDate')
+        medicines = row.get('medicines', [])
+        age = None
+        if birth_date:
+            try:
+                dob = datetime.strptime(birth_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+                today = datetime.today()
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            except ValueError:
+                pass
+
+        if age is not None:
+            age_medicine_pairs.append((age, len(medicines)))
+
+    if not age_medicine_pairs:
+        return 0.0
+
+    ages, medicines = zip(*age_medicine_pairs)
+    n = len(ages)
+    mean_age = sum(ages) / n
+    mean_medicines = sum(medicines) / n
+
+    numerator = sum((ages[i] - mean_age) * (medicines[i] - mean_medicines) for i in range(n))
+    denominator = (sum((ages[i] - mean_age) ** 2 for i in range(n)) * sum((medicines[i] - mean_medicines) ** 2 for i in range(n))) ** 0.5
+
+    return round(numerator / denominator, 2) if denominator != 0 else 0.0
+
+# Main function to process all tasks
+def main():
+    file_path = "DataEngineeringQ2.json"
+    data = load_data(file_path)
+
+    # Extract patientDetails and consultationData
+    patient_details = [entry["patientDetails"] for entry in data if "patientDetails" in entry]
+    consultation_data = [entry["consultationData"] for entry in data if "consultationData" in entry]
+
+    # Task 1: Missing Value Percentages
+    missing_percentages = calculate_missing_percentage(patient_details, ["firstName", "lastName", "birthDate"])
+    print(",".join(map(str, missing_percentages)))
+
+    # Task 2: Gender Imputation
+    female_percentage = impute_gender_and_calculate_percentage(patient_details)
+    print(female_percentage)
+
+    # Task 3: Age Groups and Adult Count
+    adult_count = categorize_age_group_and_count_adults(patient_details)
+    print(adult_count)
+
+    # Task 4: Average Number of Medicines
+    average_medicines = calculate_average_medicines(consultation_data)
+    print(average_medicines)
+
+    # Task 5: Third Most Frequent Medicine
+    third_most_frequent_medicine = find_third_most_frequent_medicine(consultation_data)
+    print(third_most_frequent_medicine)
+
+    # Task 6: Active and Inactive Medicine Distribution
+    active_percentage, inactive_percentage = calculate_medicine_distribution(consultation_data)
+    print(f"{active_percentage},{inactive_percentage}")
+
+    # Task 7: Valid Phone Numbers
+    valid_phone_count = validate_phone_numbers(patient_details)
+    print(valid_phone_count)
+
+    # Task 8: Pearson Correlation
+    correlation = calculate_pearson_correlation(consultation_data)
+    print(correlation)
+
+# Run the main function
+if __name__ == "__main__":
+    main()
